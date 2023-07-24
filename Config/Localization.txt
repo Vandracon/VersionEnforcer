@@ -1,0 +1,4 @@
+﻿Key,File,Type,UsedInMainMenu,NoTranslate,english
+authstate_customversion,UI,AuthenticationMessages,x,,Waiting for version verification...
+auth_ModVersionMismatch,UI,AuthenticationMessages,x,,Mod Version Mismatch: you have '{0}' and server has '{1}.'
+
