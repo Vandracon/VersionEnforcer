@@ -4,6 +4,6 @@
     <DisplayName value="Version Enforcer" />
     <Description value="Enforces connecting clients to have the same modpack version" />
     <Author value="Vandracon" />
-    <Version value="0.0.1" />
+    <Version value="21.1.0.0" />
     <Website value="" />
 </xml>

@@ -17,9 +17,8 @@ namespace VersionEnforcer.Harmony
                 string kickReason;
                 if (_kickData.reason == (GameUtils.EKickReason)500)
                 {
-                    kickReason = "Mod version does not match server";
-                    text = string.Format(Localization.Get("auth_ModVersionMismatch"), Globals.CustomVersion,
-                        _kickData.customReason);
+                    kickReason = "Mod versions do not match server";
+                    text = string.Format(Localization.Get("auth_ModVersionMismatch"), _kickData.customReason);
                 }
                 else
                 {

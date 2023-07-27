@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using HarmonyLib;
 using JetBrains.Annotations;
 using VersionEnforcer.Scripts;
@@ -8,13 +9,14 @@ namespace VersionEnforcer.Harmony
     [UsedImplicitly]
     public class Harmony_NetPackagePlayerLogin
     {
-        public static readonly Dictionary<string, string> PlatformUserIdToProvidedCustomVersion =
-            new Dictionary<string, string>();
-        
-        [UsedImplicitly]
+        private const string DELIMITER = ":::";
+
+        private static int lastCustomFieldsByteSize;
+
+        [HarmonyPatch(typeof(NetPackagePlayerLogin), "read")]
         public class NetPackagePlayerLogin_ReadPatch
         {
-            [HarmonyPatch(typeof(NetPackagePlayerLogin), "read")]
+            [UsedImplicitly]
             private static bool Prefix(NetPackagePlayerLogin __instance, PooledBinaryReader _br)
             {
                 var instanceTraverse = Traverse.Create(__instance);
@@ -30,33 +32,46 @@ namespace VersionEnforcer.Harmony
                 instanceTraverse.Field("compVersion")?.SetValue(_br.ReadString());
 
                 // Modded Fields
-                var customVersion = _br.ReadString();
+                var numMods = _br.ReadInt32();
+                
+                var mods = new List<CustomVersionAuthorizer.ModVersionInfo>();
+                var strLen = 0;
+                for (int i = 0; i < numMods; i++)
+                {
+                    var str = _br.ReadString();
+                    strLen += str.Length;
+                    string[] modInfo = str.Split(new[] { DELIMITER }, StringSplitOptions.None);
+                    if (modInfo.Length < 2) continue;
+                    mods.Add(new CustomVersionAuthorizer.ModVersionInfo { ModName = modInfo[0], ModVersion = modInfo[1]});
+                }
+
+                lastCustomFieldsByteSize = sizeof(Int32) + strLen * 2;
 
                 var platformUserAndToken =
                     // ReSharper disable once PossibleNullReferenceException
                     ((PlatformUserIdentifierAbs userId, string token))instanceTraverse.Field("platformUserAndToken")
                         ?.GetValue();
 
-                if (PlatformUserIdToProvidedCustomVersion.ContainsKey(platformUserAndToken.userId
+                if (CustomVersionAuthorizer.PlatformUserIdToProvidedCustomVersion.ContainsKey(platformUserAndToken.userId
                         .ReadablePlatformUserIdentifier))
                 {
-                    PlatformUserIdToProvidedCustomVersion[platformUserAndToken.userId.ReadablePlatformUserIdentifier] =
-                        customVersion;
+                    CustomVersionAuthorizer.PlatformUserIdToProvidedCustomVersion[
+                        platformUserAndToken.userId.ReadablePlatformUserIdentifier] = mods;
                 }
                 else
                 {
-                    PlatformUserIdToProvidedCustomVersion.Add(
-                        platformUserAndToken.userId.ReadablePlatformUserIdentifier, customVersion);
+                    CustomVersionAuthorizer.PlatformUserIdToProvidedCustomVersion.Add(
+                        platformUserAndToken.userId.ReadablePlatformUserIdentifier, mods);
                 }
 
                 return false;
             }
         }
 
-        [UsedImplicitly]
+        [HarmonyPatch(typeof(NetPackagePlayerLogin), "write")]
         public class NetPackagePlayerLogin_WritePatch
         {
-            [HarmonyPatch(typeof(NetPackagePlayerLogin), "write")]
+            [UsedImplicitly]
             private static bool Prefix(NetPackagePlayerLogin __instance, PooledBinaryWriter _bw)
             {
                 var instanceTraverse = Traverse.Create(__instance);
@@ -74,7 +89,9 @@ namespace VersionEnforcer.Harmony
 
                 // Vanilla Fields
                 Log.Out("NPPL.Write");
-                __instance.write(_bw);
+                #region base.write(_bw) equivalent replacement
+                _bw.Write((byte) __instance.PackageId);
+                #endregion
                 // ReSharper disable once AssignNullToNotNullAttribute
                 _bw.Write(playerName);
                 platformUserAndToken.userId.ToStream(_bw, true);
@@ -86,9 +103,32 @@ namespace VersionEnforcer.Harmony
                 // ReSharper disable once AssignNullToNotNullAttribute
                 _bw.Write(compVersion);
                 
-                // Modded Fields
-                _bw.Write(Globals.CustomVersion);
+                // Modded
+                var loadedMods = ModManager.GetLoadedMods();
+                var mods = new List<string>();
+                foreach (var mod in loadedMods)
+                {
+                    mods.Add($"{mod.Name}{DELIMITER}{mod.VersionString}");
+                }
+                
+                _bw.Write(loadedMods.Count);
+                foreach (var str in mods)
+                {
+                    _bw.Write(str);
+                }
 
+                return false;
+            }
+        }
+
+        [HarmonyPatch(typeof(NetPackagePlayerLogin), "GetLength")]
+        public class NetPackagePlayerLogin_GetLengthPatch
+        {
+            [UsedImplicitly]
+            // ReSharper disable once RedundantAssignment
+            private static bool Prefix(NetPackagePlayerLogin __instance, ref int __result)
+            {
+                __result = __instance.GetLength() + lastCustomFieldsByteSize;
                 return false;
             }
         }
