@@ -31,6 +31,7 @@ namespace VersionEnforcer.Scripts
         }
 
         private readonly List<string> ignoreList = new List<string>();
+        private const int MAX_MESSAGE_LENGTH = 200;
 
         public override void Init(IAuthorizationResponses _authResponsesHandler)
         {
@@ -70,13 +71,21 @@ namespace VersionEnforcer.Scripts
             var issuesMessage = "";
             foreach (var issue in issues)
             {
-                if (issue.Issue == ModIssue.Missing) issuesMessage += $"{issue.ModName}@{issue.ServerVersion} missing.";
-                else issuesMessage += $"{issue.ModName}@{issue.ClientVersion} version should be {issue.ServerVersion}";
-                issuesMessage += "\n";
-            }
+                var appendText = "";
+                if (issue.Issue == ModIssue.Missing) appendText += $"{issue.ModName}@{issue.ServerVersion}(missing), ";
+                else appendText += $"{issue.ModName}@{issue.ClientVersion}(needs {issue.ServerVersion}), ";
 
+                if (issuesMessage.Length + appendText.Length > MAX_MESSAGE_LENGTH)
+                {
+                    issuesMessage += "..[more]..  ";
+                    break;
+                }
+                issuesMessage += appendText;
+            }
+            
             if (issues.Count > 0)
             {
+                issuesMessage = issuesMessage.Remove(issuesMessage.Length - 2);
                 EAuthorizerSyncResult item = EAuthorizerSyncResult.SyncDeny;
                 int apiResponseEnum = 0;
                 return new ValueTuple<EAuthorizerSyncResult, GameUtils.KickPlayerData?>(item,
