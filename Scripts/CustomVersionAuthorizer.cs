@@ -80,6 +80,7 @@ namespace VersionEnforcer.Scripts
                     issuesMessage += "..[more]..  ";
                     break;
                 }
+
                 issuesMessage += appendText;
             }
             
