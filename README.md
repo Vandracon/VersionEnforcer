@@ -3,6 +3,8 @@ Enforces and lists missing mod versions for 7 Days to Die (7D2D)
 
 This mod was developed against 7D2D Alpha 21
 
+Confirmed to also work for 1.0, 1.1, 1.2 via the Rebirth overhaul mod.
+
 ***Works with In-Game hosting and Dedicated servers.***
 
 ***Must exist on Server AND Client (can't connect otherwise).***
